@@ -1,12 +1,16 @@
+# =================================================================
+#  CONFIGURATION FOR LOCAL DEVELOPMENT (`wrangler dev`)
+#
+#  - To run this project locally, fill in the placeholder IDs below
+#    with your actual D1 and KV resource IDs.
+#  - This file is NOT used for Cloudflare Pages deployment settings.
+#    Deployment bindings must be configured in the Cloudflare dashboard.
+# =================================================================
+
 name = "iori-nav"
 compatibility_date = "2025-12-04"
 pages_build_output_dir = "public"
 
-# =================================================================
-#  LOCAL DEVELOPMENT CONFIGURATION
-#  - Fill in your actual IDs here to run `wrangler dev`.
-#  - IMPORTANT: Do not commit your personal IDs to version control.
-# =================================================================
 [[d1_databases]]
 binding = "NAV_DB"
 database_name = "book"
@@ -17,29 +21,6 @@ binding = "NAV_AUTH"
 id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
 
 [vars]
-ICON_API = "https://icon.iori.nyc.mn/?domain="
-ENABLE_PUBLIC_SUBMISSION = false
-SITE_NAME = "IORI"
-SITE_DESCRIPTION = "从效率工具到灵感站点,我们亲自挑选、亲手标注,只为帮助你更快找到值得信赖的优质资源。"
-FOOTER_TEXT = "曾梦想仗剑走天涯"
-
-
-# =================================================================
-#  CLOUDFLARE PAGES DEPLOYMENT CONFIGURATION
-#  - This is a self-contained environment for the "Deploy" button.
-# =================================================================
-[env.production]
-
-[[env.production.d1_databases]]
-binding = "NAV_DB"
-database_name = "book"
-database_id = ""
-
-# The kv_namespaces block is intentionally removed for the production
-# environment to bypass a persistent validation error. You may need
-# to manually bind the 'NAV_AUTH' KV namespace in the Cloudflare Pages UI.
-
-[env.production.vars]
 ICON_API = "https://icon.iori.nyc.mn/?domain="
 ENABLE_PUBLIC_SUBMISSION = false
 SITE_NAME = "IORI"

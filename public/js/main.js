@@ -512,8 +512,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const card = document.createElement('div');
         card.className = `${baseCardClass} ${frostedClass} card-anim-enter`;
-        const delay = Math.min(index, 20) * 30; 
-        card.style.animationDelay = `${delay}ms`;
+        const delay = Math.min(index, 20) * 30;
+        if (delay > 0) {
+            card.style.animationDelay = `${delay}ms`;
+        }
+        card.style.pointerEvents = 'none'; // Prevent hover during animation
+        
+        // Fix: Remove animation class and style after completion to restore hover effects
+        card.addEventListener('animationend', () => {
+            card.classList.remove('card-anim-enter');
+            // Force reflow to ensure clean state transition
+            void card.offsetWidth;
+            // Delay enabling interaction by one frame to ensure transition property is active before hover
+            requestAnimationFrame(() => {
+                card.removeAttribute('style');
+            });
+        }, { once: true });
         
         card.setAttribute('data-name', safeName);
         card.setAttribute('data-url', safeUrl);

@@ -159,9 +159,11 @@ export async function onRequest(context) {
   let layoutFrostedGlassIntensity = '15';
   let layoutEnableBgBlur = false;
   let layoutBgBlurIntensity = '0';
+  let wallpaperSource = 'bing';
+  let wallpaperCid360 = '36';
 
   try {
-    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout', 'layout_random_wallpaper', 'bing_country', 'layout_enable_frosted_glass', 'layout_frosted_glass_intensity', 'layout_enable_bg_blur', 'layout_bg_blur_intensity')").all();
+    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout', 'layout_random_wallpaper', 'bing_country', 'layout_enable_frosted_glass', 'layout_frosted_glass_intensity', 'layout_enable_bg_blur', 'layout_bg_blur_intensity', 'wallpaper_source', 'wallpaper_cid_360')").all();
     if (results) {
       results.forEach(row => {
         if (row.key === 'layout_hide_desc') layoutHideDesc = row.value === 'true';
@@ -178,6 +180,8 @@ export async function onRequest(context) {
         if (row.key === 'layout_frosted_glass_intensity') layoutFrostedGlassIntensity = row.value;
         if (row.key === 'layout_enable_bg_blur') layoutEnableBgBlur = row.value === 'true';
         if (row.key === 'layout_bg_blur_intensity') layoutBgBlurIntensity = row.value;
+        if (row.key === 'wallpaper_source') wallpaperSource = row.value;
+        if (row.key === 'wallpaper_cid_360') wallpaperCid360 = row.value;
       });
     }
   } catch (e) {}
@@ -189,26 +193,49 @@ export async function onRequest(context) {
           const match = cookies.match(/wallpaper_index=(\d+)/);
           const currentWallpaperIndex = match ? parseInt(match[1]) : -1;
 
-          let bingUrl = '';
-          if (bingCountry === 'spotlight') {
-              bingUrl = 'https://peapix.com/spotlight/feed?n=7';
+          if (wallpaperSource === '360') {
+             const cid = wallpaperCid360 || '36';
+             const apiUrl = `http://cdn.apc.360.cn/index.php?c=WallPaper&a=getAppsByCategory&from=360chrome&cid=${cid}&start=0&count=8`;
+             const res = await fetch(apiUrl);
+             if (res.ok) {
+                 const json = await res.json();
+                 if (json.errno === "0" && json.data && json.data.length > 0) {
+                      nextWallpaperIndex = (currentWallpaperIndex + 1) % json.data.length;
+                      const targetItem = json.data[nextWallpaperIndex];
+                      let targetUrl = targetItem.url;
+                      console.log('360 Wallpaper URL:', targetUrl);
+                      if (targetUrl) {
+                          // Try to upgrade to HTTPS if possible to avoid mixed content
+                          targetUrl = targetUrl.replace('http://', 'https://');
+                          layoutCustomWallpaper = targetUrl;
+                      }
+                 }
+             }
           } else {
-              bingUrl = `https://peapix.com/bing/feed?n=7&country=${bingCountry}`;
-          }
-          
-          const res = await fetch(bingUrl);
-          if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data) && data.length > 0) {
-                  nextWallpaperIndex = (currentWallpaperIndex + 1) % data.length;
-                  const targetItem = data[nextWallpaperIndex];
-                  const targetUrl = targetItem.fullUrl || targetItem.url;
-                  if (targetUrl) {
-                      layoutCustomWallpaper = targetUrl;
+              // Default to Bing
+              let bingUrl = '';
+              if (bingCountry === 'spotlight') {
+                  bingUrl = 'https://peapix.com/spotlight/feed?n=7';
+              } else {
+                  bingUrl = `https://peapix.com/bing/feed?n=7&country=${bingCountry}`;
+              }
+              
+              const res = await fetch(bingUrl);
+              if (res.ok) {
+                  const data = await res.json();
+                  if (Array.isArray(data) && data.length > 0) {
+                      nextWallpaperIndex = (currentWallpaperIndex + 1) % data.length;
+                      const targetItem = data[nextWallpaperIndex];
+                      const targetUrl = targetItem.fullUrl || targetItem.url;
+                      if (targetUrl) {
+                          layoutCustomWallpaper = targetUrl;
+                      }
                   }
               }
           }
-      } catch (e) {}
+      } catch (e) {
+          console.error('Random Wallpaper Error:', e);
+      }
   }
 
   const isCustomWallpaper = Boolean(layoutCustomWallpaper);

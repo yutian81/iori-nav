@@ -1782,7 +1782,10 @@ const initSettings = () => {
   const bgBlurIntensityRange = document.getElementById('bgBlurIntensity');
   const bgBlurIntensityValue = document.getElementById('bgBlurIntensityValue');
   const bingCountrySelect = document.getElementById('bingCountry');
-  const bingWallpapersDiv = document.getElementById('bingWallpapers');
+  const onlineWallpapersDiv = document.getElementById('onlineWallpapers');
+  const wpSourceBingBtn = document.getElementById('wpSourceBing');
+  const wpSource360Btn = document.getElementById('wpSource360');
+  const category360Select = document.getElementById('category360');
 
   // AI Provider Elements
   const providerSelector = document.getElementById('providerSelector');
@@ -1821,7 +1824,9 @@ const initSettings = () => {
     layout_random_wallpaper: false,
     layout_enable_bg_blur: false,
     layout_bg_blur_intensity: '0',
-    bing_country: ''
+    bing_country: '',
+    wallpaper_source: 'bing',
+    wallpaper_cid_360: '36'
   };
 
   let shouldStopBulkGeneration = false;
@@ -1844,60 +1849,251 @@ const initSettings = () => {
   }
   fetchPublicConfig();
 
-  // --- Bing Wallpaper Logic ---
+  // --- Online Wallpaper Logic ---
+
+  // Inject Custom CSS for Wallpaper Interactions to guarantee stability
+  const wpStyleId = 'wallpaper-custom-styles';
+  if (!document.getElementById(wpStyleId)) {
+      const style = document.createElement('style');
+      style.id = wpStyleId;
+      style.textContent = `
+          /* Wallpaper Cards Styles */
+          .wp-card-wrapper {
+              position: relative;
+              overflow: hidden;
+              border-radius: 0.5rem;
+              cursor: pointer;
+              background-color: #f3f4f6;
+              border: 1px solid #e5e7eb;
+              transition: border-color 0.3s;
+          }
+          .wp-card-wrapper:hover {
+              border-color: #6366f1;
+          }
+          .wp-card-image-container {
+              width: 100%;
+              height: 100%;
+              overflow: hidden;
+          }
+          .wp-card-image {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+              transition: transform 0.5s ease;
+              transform: scale(1) translateZ(0);
+              will-change: transform;
+          }
+          .wp-card-wrapper:hover .wp-card-image {
+              transform: scale(1.15) translateZ(0) !important;
+          }
+          .wp-card-overlay {
+              position: absolute;
+              inset: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background-color: rgba(0, 0, 0, 0);
+              transition: background-color 0.3s;
+              pointer-events: none;
+          }
+          .wp-card-wrapper:hover .wp-card-overlay {
+              background-color: rgba(0, 0, 0, 0.1);
+          }
+          .wp-card-btn {
+              opacity: 0;
+              transition: opacity 0.3s;
+              background-color: rgba(0, 0, 0, 0.5);
+              color: white;
+              font-size: 0.75rem;
+              padding: 0.25rem 0.5rem;
+              border-radius: 0.25rem;
+          }
+          .wp-card-wrapper:hover .wp-card-btn {
+              opacity: 1;
+          }
+
+          /* Fix: Ensure Site Card Hover Animation works after dynamic rendering */
+          .site-card:hover {
+              transform: scale(1.15) translateY(-10px) !important;
+              box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15) !important;
+              z-index: 10 !important;
+              border: 2px solid #416d9d !important;
+          }
+      `;
+      document.head.appendChild(style);
+  }
+
+  // Helper to render card
+  function renderWallpaperCard(thumb, full, title) {
+    if (!onlineWallpapersDiv) return;
+    const div = document.createElement('div');
+    
+    // Use custom classes + standard Tailwind aspect ratio
+    div.className = 'wp-card-wrapper aspect-video';
+    div.title = title;
+
+    div.innerHTML = `
+      <div class="wp-card-image-container">
+        <img src="${thumb}" class="wp-card-image" alt="${title}">
+      </div>
+      <div class="wp-card-overlay">
+        <span class="wp-card-btn">应用</span>
+      </div>`;
+    
+    div.addEventListener('click', () => {
+        if (customWallpaperInput) {
+            customWallpaperInput.value = full;
+            customWallpaperInput.classList.add('bg-green-50');
+            setTimeout(() => customWallpaperInput.classList.remove('bg-green-50'), 300);
+        }
+    });
+    onlineWallpapersDiv.appendChild(div);
+  }
+
+  // Fetch Bing Wallpapers
   async function fetchBingWallpapers(country = '') {
-      if (!bingWallpapersDiv) return;
-      bingWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">加载中...</div>';
+      if (!onlineWallpapersDiv) return;
+      onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">加载中...</div>';
       
       try {
           let url = '';
           if (country === 'spotlight') {
-              url = 'https://peapix.com/spotlight/feed?n=7';
+              url = 'https://peapix.com/spotlight/feed?n=8';
           } else {
-              url = `https://peapix.com/bing/feed?n=7&country=${country}`;
+              url = `https://peapix.com/bing/feed?n=8&country=${country}`;
           }
           
           const res = await fetch(url);
           if (!res.ok) throw new Error('API Request Failed');
           const data = await res.json();
           
-          bingWallpapersDiv.innerHTML = '';
+          onlineWallpapersDiv.innerHTML = '';
           
           if (!Array.isArray(data) || data.length === 0) {
-              bingWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">未获取到壁纸</div>';
+              onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">未获取到壁纸</div>';
               return;
           }
           
           data.forEach(item => {
-              // item.thumbUrl usually 480x360 or similar
-              // item.fullUrl usually 1920x1080
-              const thumb = item.thumbUrl || item.url; // Fallback
-              const full = item.fullUrl || item.url;   // Fallback
+              const thumb = item.thumbUrl || item.url;
+              const full = item.fullUrl || item.url;
               const title = item.title || 'Bing Wallpaper';
-              
-              const div = document.createElement('div');
-              div.className = 'relative group cursor-pointer rounded-lg overflow-hidden border border-gray-200 hover:border-primary-500 transition-all aspect-video bg-gray-100';
-              div.title = title;
-              div.innerHTML = `<img src="${thumb}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="${title}">
-                               <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                  <span class="opacity-0 group-hover:opacity-100 bg-black/50 text-white text-xs px-2 py-1 rounded">应用</span>
-                               </div>`;
-              
-              div.addEventListener('click', () => {
-                  if (customWallpaperInput) {
-                      customWallpaperInput.value = full;
-                      // Optional: Flash input to indicate change
-                      customWallpaperInput.classList.add('bg-green-50');
-                      setTimeout(() => customWallpaperInput.classList.remove('bg-green-50'), 300);
-                  }
-              });
-              
-              bingWallpapersDiv.appendChild(div);
+              renderWallpaperCard(thumb, full, title);
           });
           
       } catch (err) {
           console.error('Bing Wallpaper Fetch Error:', err);
-          bingWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-red-400 py-8 text-sm">加载失败，请检查网络或稍后重试</div>';
+          onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-red-400 py-8 text-sm">加载失败，请检查网络或稍后重试</div>';
+      }
+  }
+
+  // Fetch 360 Categories
+  async function fetch360Categories() {
+      if (!category360Select || category360Select.options.length > 1) return; // Already loaded or missing
+      
+      try {
+          const res = await fetch('/api/wallpaper?source=360&action=categories');
+          if (!res.ok) throw new Error('Failed to fetch categories');
+          const result = await res.json();
+          
+          // Proxy wraps response in { code: 200, data: { errno: "0", data: [...] } }
+          const apiData = result.data;
+
+          if (result.code === 200 && apiData && apiData.data && Array.isArray(apiData.data)) {
+              category360Select.innerHTML = '';
+              apiData.data.forEach(cat => {
+                  const option = document.createElement('option');
+                  option.value = cat.id;
+                  option.textContent = cat.name;
+                  if (cat.id == '36') option.selected = true; // Default to 4K
+                  category360Select.appendChild(option);
+              });
+          }
+      } catch (e) {
+          console.error('360 Categories Error', e);
+      }
+  }
+
+  // Fetch 360 Wallpapers
+  async function fetch360Wallpapers(cid = '36') {
+      if (!onlineWallpapersDiv) return;
+      onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">加载中...</div>';
+      
+      try {
+          const res = await fetch(`/api/wallpaper?source=360&action=list&cid=${cid}&start=0&count=8`);
+          if (!res.ok) throw new Error('API Request Failed');
+          const result = await res.json();
+          
+          // Proxy wraps response in { code: 200, data: { errno: "0", data: [...] } }
+          const apiData = result.data;
+          
+          if (result.code !== 200 || !apiData || !apiData.data || apiData.data.length === 0) {
+               onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">未获取到壁纸</div>';
+               return;
+          }
+          
+          onlineWallpapersDiv.innerHTML = '';
+          apiData.data.forEach(item => {
+              // Prefer img_1024_768 for thumbnail to speed up loading, fallback to others
+              let thumb = item.img_1024_768 || item.url_thumb || item.url;
+              let full = item.url;
+              
+              // Ensure HTTPS
+              if (thumb && thumb.startsWith('http:')) thumb = thumb.replace('http:', 'https:');
+              if (full && full.startsWith('http:')) full = full.replace('http:', 'https:');
+
+              const title = item.tag || '360 Wallpaper';
+              renderWallpaperCard(thumb, full, title);
+          });
+          
+      } catch (err) {
+          console.error('360 Wallpaper Error:', err);
+          onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-red-400 py-8 text-sm">加载失败</div>';
+      }
+  }
+
+  function switchWallpaperSource(source) {
+      currentSettings.wallpaper_source = source;
+      
+      // Toggle Buttons Style
+      if (source === 'bing') {
+          if(wpSourceBingBtn) {
+            wpSourceBingBtn.classList.add('bg-white', 'text-gray-800', 'shadow-sm');
+            wpSourceBingBtn.classList.remove('text-gray-600', 'hover:text-gray-800', 'hover:bg-white/50');
+          }
+          if(wpSource360Btn) {
+            wpSource360Btn.classList.remove('bg-white', 'text-gray-800', 'shadow-sm');
+            wpSource360Btn.classList.add('text-gray-600', 'hover:text-gray-800', 'hover:bg-white/50');
+          }
+          
+          if(bingCountrySelect) bingCountrySelect.classList.remove('hidden');
+          if(category360Select) category360Select.classList.add('hidden');
+          
+          fetchBingWallpapers(currentSettings.bing_country);
+      } else {
+          if(wpSource360Btn) {
+            wpSource360Btn.classList.add('bg-white', 'text-gray-800', 'shadow-sm');
+            wpSource360Btn.classList.remove('text-gray-600', 'hover:text-gray-800', 'hover:bg-white/50');
+          }
+          if(wpSourceBingBtn) {
+            wpSourceBingBtn.classList.remove('bg-white', 'text-gray-800', 'shadow-sm');
+            wpSourceBingBtn.classList.add('text-gray-600', 'hover:text-gray-800', 'hover:bg-white/50');
+          }
+          
+          if(bingCountrySelect) bingCountrySelect.classList.add('hidden');
+          if(category360Select) category360Select.classList.remove('hidden');
+          
+          if (onlineWallpapersDiv) {
+              onlineWallpapersDiv.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">加载中...</div>';
+          }
+          
+          fetch360Categories().then(() => {
+              if (category360Select && currentSettings.wallpaper_cid_360) {
+                  category360Select.value = currentSettings.wallpaper_cid_360;
+              }
+              fetch360Wallpapers(currentSettings.wallpaper_cid_360 || '36');
+          });
       }
   }
 
@@ -1940,17 +2136,33 @@ const initSettings = () => {
             }
         });
         
-        // Auto fetch bing wallpapers if tab is active and empty
-        if (tabId === 'wallpaper-settings' && bingWallpapersDiv && (!bingWallpapersDiv.children.length || bingWallpapersDiv.innerText.includes('加载中'))) {
-            fetchBingWallpapers(currentSettings.bing_country);
+        // Auto fetch wallpapers if tab is active and empty
+        if (tabId === 'wallpaper-settings' && onlineWallpapersDiv && (!onlineWallpapersDiv.children.length || onlineWallpapersDiv.innerText.includes('加载中'))) {
+            switchWallpaperSource(currentSettings.wallpaper_source || 'bing');
         }
     });
   });
   
+  // Wallpaper Source Switching
+  if (wpSourceBingBtn) {
+      wpSourceBingBtn.addEventListener('click', () => switchWallpaperSource('bing'));
+  }
+  if (wpSource360Btn) {
+      wpSource360Btn.addEventListener('click', () => switchWallpaperSource('360'));
+  }
+
+  // Filters
   if (bingCountrySelect) {
       bingCountrySelect.addEventListener('change', () => {
           currentSettings.bing_country = bingCountrySelect.value;
           fetchBingWallpapers(currentSettings.bing_country);
+      });
+  }
+  
+  if (category360Select) {
+      category360Select.addEventListener('change', () => {
+          currentSettings.wallpaper_cid_360 = category360Select.value;
+          fetch360Wallpapers(category360Select.value);
       });
   }
 
@@ -1976,6 +2188,7 @@ const initSettings = () => {
     currentSettings.layout_enable_bg_blur = bgBlurSwitch.checked;
     currentSettings.layout_bg_blur_intensity = bgBlurIntensityRange.value;
     currentSettings.bing_country = bingCountrySelect.value;
+    currentSettings.wallpaper_cid_360 = category360Select.value;
     
     // Get Grid Cols
     for (const radio of gridColsRadios) {
@@ -2074,6 +2287,8 @@ const initSettings = () => {
             if (serverSettings.layout_enable_bg_blur !== undefined) currentSettings.layout_enable_bg_blur = serverSettings.layout_enable_bg_blur === 'true';
             if (serverSettings.layout_bg_blur_intensity) currentSettings.layout_bg_blur_intensity = serverSettings.layout_bg_blur_intensity;
             if (serverSettings.bing_country !== undefined) currentSettings.bing_country = serverSettings.bing_country;
+            if (serverSettings.wallpaper_source) currentSettings.wallpaper_source = serverSettings.wallpaper_source;
+            if (serverSettings.wallpaper_cid_360) currentSettings.wallpaper_cid_360 = serverSettings.wallpaper_cid_360;
 
         } else {
             // Fallback to localStorage if server has no data (migration)

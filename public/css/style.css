@@ -455,3 +455,26 @@
   background-color: #2563eb;
   color: white;
 }
+
+/* ========================================= */
+/* 修复：更多菜单中的二级菜单改为向左弹出 */
+/* ========================================= */
+
+#horizontalMoreDropdown .menu-item-wrapper .dropdown-menu {
+  left: auto;
+  right: 100%; /* 向左弹出 */
+  margin-left: 0;
+  margin-right: 0.2rem;
+  transform: translateX(4px) translateY(0); /* 调整动画位移方向 */
+}
+
+/* 修正左侧弹出时的鼠标悬停桥接区域 */
+#horizontalMoreDropdown .menu-item-wrapper .dropdown-menu::after {
+  left: auto;
+  right: -0.4rem;
+}
+
+/* 调整悬停时的动画终点 */
+#horizontalMoreDropdown .menu-item-wrapper:hover > .dropdown-menu {
+  transform: translateX(0) translateY(0);
+}

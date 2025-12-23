@@ -81,6 +81,31 @@
         </div>
       </div>
 
+      <!-- 导出选项模态框 -->
+      <div id="exportModal" class="modal" style="display: none">
+        <div class="modal-content">
+          <span class="modal-close" id="closeExportModal">×</span>
+          <h2>导出选项</h2>
+          <div class="p-4">
+              <p class="text-sm text-gray-600 mb-4">请选择导出数据的包含范围：</p>
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+                  <div class="flex flex-col">
+                      <span class="text-gray-700 font-medium text-sm">包含私密数据</span>
+                      <span class="text-gray-400 text-xs mt-1">同时也包含私密分类下的书签</span>
+                  </div>
+                  <label class="switch">
+                      <input type="checkbox" id="exportIncludePrivate">
+                      <span class="slider round"></span>
+                  </label>
+              </div>
+          </div>
+          <div class="flex justify-end gap-3 mt-4">
+            <button id="cancelExportBtn" class="px-4 py-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 text-sm">取消</button>
+            <button id="confirmExportBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">确认导出</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 新增分类模态框 -->
       <div id="addCategoryModal" class="modal" style="display: none">
         <div class="modal-content">

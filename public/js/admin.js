@@ -184,10 +184,52 @@ if (importFile) {
 }
 
 // 导出按钮事件
+const exportModal = document.getElementById('exportModal');
+const closeExportModal = document.getElementById('closeExportModal');
+const cancelExportBtn = document.getElementById('cancelExportBtn');
+const confirmExportBtn = document.getElementById('confirmExportBtn');
+const exportIncludePrivate = document.getElementById('exportIncludePrivate');
+
 if (exportBtn) {
   exportBtn.addEventListener('click', () => {
-    fetch('/api/config/export')
-      .then(res => res.blob())
+    // Reset state every time
+    if (exportIncludePrivate) exportIncludePrivate.checked = false;
+    if (exportModal) exportModal.style.display = 'block';
+  });
+}
+
+if (closeExportModal) {
+    closeExportModal.addEventListener('click', () => {
+        exportModal.style.display = 'none';
+    });
+}
+
+if (cancelExportBtn) {
+    cancelExportBtn.addEventListener('click', () => {
+        exportModal.style.display = 'none';
+    });
+}
+
+if (exportModal) {
+    exportModal.addEventListener('click', (e) => {
+        if (e.target === exportModal) {
+            exportModal.style.display = 'none';
+        }
+    });
+}
+
+if (confirmExportBtn) {
+  confirmExportBtn.addEventListener('click', () => {
+    const includePrivate = exportIncludePrivate ? exportIncludePrivate.checked : false;
+    const url = `/api/config/export?include_private=${includePrivate}`;
+    
+    showMessage('正在生成导出文件...', 'info');
+    
+    fetch(url)
+      .then(res => {
+          if (!res.ok) throw new Error('Export failed');
+          return res.blob();
+      })
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -197,8 +239,11 @@ if (exportBtn) {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        showMessage('导出成功', 'success');
+        exportModal.style.display = 'none';
       }).catch(err => {
-        showMessage('网络错误', 'error');
+        showMessage('导出失败: ' + err.message, 'error');
+        exportModal.style.display = 'none';
       });
   });
 }

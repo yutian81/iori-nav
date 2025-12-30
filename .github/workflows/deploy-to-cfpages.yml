@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: 自动部署到 Cloudflare Pages
 
 on:
   push:
@@ -13,27 +13,27 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ vars.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME || 'iori-nav' }}
       NAV_D1_NAME: ${{ vars.D1_NAME }}
       NAV_D1_ID: ${{ vars.NAV_D1_ID }}
       NAV_KV_ID: ${{ vars.NAV_KV_ID }}
-      ADMIN_USER: ${{ vars.ADMIN_USER }}
-      ADMIN_PASS: ${{ vars.ADMIN_PASS }}
+      ADMIN_USER: ${{ vars.ADMIN_USER || 'admin' }}
+      ADMIN_PASS: ${{ vars.ADMIN_PASS || 'admin123' }}
       CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
     
     steps:
-      - name: Checkout
+      - name: 检出仓库
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: 安装 nodejs 环境
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Wrangler
+      - name: 安装 Wrangler
         run: npm install wrangler --save-dev
 
-      - name: Generate Wrangler Config
+      - name: 生成 Wrangler 配置
         shell: bash
         run: |
           # 构建 wrangler.toml
@@ -52,7 +52,8 @@ jobs:
           id = "$NAV_KV_ID"
           EOF
 
-      - name: Deploy and Initialize
+      - name: 部署并初始化数据库
+        id: deploy
         run: |
           mkdir -p public
 
@@ -62,13 +63,15 @@ jobs:
           fi
 
           # 部署项目到 Cloudflare Pages
-          npx wrangler pages deploy public --project-name ${PROJECT_NAME}
+          DEPLOY_OUTPUT=$(npx wrangler pages deploy public --project-name ${PROJECT_NAME})
+          PAGES_URL=$(echo "$DEPLOY_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "https://[^ ]+\.pages\.dev" | head -n 1)
+          echo "PAGES_URL=$PAGES_URL" >> $GITHUB_ENV
 
           # 自动写入 KV 管理员账号
           npx wrangler kv:key put --binding=NAV_AUTH "admin_username" "${ADMIN_USER}" --preview false
           npx wrangler kv:key put --binding=NAV_AUTH "admin_password" "${ADMIN_PASS}" --preview false
 
-      - name: Bind Custom Domain
+      - name: 绑定自定义域名
         if: env.CUSTOM_DOMAIN != ''
         run: |
           # 自动绑定自定义域名
@@ -76,4 +79,17 @@ jobs:
                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
                -H "Content-Type: application/json" \
                --data "{\"name\":\"${CUSTOM_DOMAIN}\"}"
-      
+
+      - name: 输出部署结果
+        run: |
+          echo "=========================================="
+          echo "🎉🎉🎉 恭喜！部署完成！"
+          echo "🔗 默认 Pages 地址: ${PAGES_URL}"
+          
+          if [ -n "${CUSTOM_DOMAIN}" ]; then
+            echo "🌐 自定义域名地址: https://${CUSTOM_DOMAIN}"
+          fi
+          
+          echo "👤 管理员用户名: ${ADMIN_USER}"
+          echo "🔑 管理员密码: ${ADMIN_PASS}"
+          echo "=========================================="

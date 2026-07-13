@@ -48,6 +48,74 @@ test('renderSiteCards reflects layout options used by SSR cards', () => {
   assert.doesNotMatch(html, /copy-btn/);
 });
 
+test('style three renders compact navigation tiles and hides secondary content', () => {
+  const settings = parseSettings([
+    { key: 'layout_hide_desc', value: 'false' },
+    { key: 'layout_hide_links', value: 'false' },
+    { key: 'layout_hide_category', value: 'false' },
+    { key: 'layout_enable_frosted_glass', value: 'false' },
+    { key: 'layout_card_style', value: 'style3' },
+  ]);
+
+  const { config } = buildCardHydrationState([
+    { id: 1, name: 'Example', url: 'https://example.com', desc: 'Hidden', catelog_name: 'Tools' },
+  ], settings);
+  const html = renderSiteCards([
+    { id: 1, name: 'Example', url: 'https://example.com', desc: 'Hidden', catelog_name: 'Tools' },
+  ], settings);
+
+  assert.equal(config.cardStyle, 'style3');
+  assert.equal(config.cardStyleClass, 'style-3');
+  assert.equal(config.hideDesc, true);
+  assert.equal(config.hideLinks, true);
+  assert.equal(config.hideCategory, true);
+  assert.match(config.baseCardClass, /bg-white/);
+  assert.equal(config.frostedClass, '');
+  assert.match(html, /style-3/);
+  assert.doesNotMatch(html, /frosted-glass-effect/);
+  assert.doesNotMatch(html, /Hidden|Tools|copy-btn/);
+});
+
+test('style three with frosted glass uses translucent treatment', () => {
+  const settings = parseSettings([
+    { key: 'layout_enable_frosted_glass', value: 'true' },
+    { key: 'layout_card_style', value: 'style3' },
+  ]);
+
+  const { config } = buildCardHydrationState([
+    { id: 1, name: 'Example', url: 'https://example.com' },
+  ], settings);
+  const html = renderSiteCards([
+    { id: 1, name: 'Example', url: 'https://example.com' },
+  ], settings);
+
+  assert.equal(config.cardStyleClass, 'style-3');
+  assert.equal(config.enableFrostedGlass, true);
+  assert.equal(config.frostedClass, 'frosted-glass-effect');
+  assert.doesNotMatch(config.baseCardClass, /bg-white/);
+  assert.match(html, /style-3/);
+  assert.match(html, /frosted-glass-effect/);
+});
+
+
+test('mobile style three has its own compact card config', () => {
+  const settings = parseSettings([
+    { key: 'mobile_layout_card_style', value: 'style3' },
+    { key: 'mobile_layout_hide_desc', value: 'false' },
+    { key: 'mobile_layout_hide_links', value: 'false' },
+    { key: 'mobile_layout_hide_category', value: 'false' },
+  ]);
+
+  const { configs } = buildCardHydrationState([
+    { id: 1, name: 'Example', url: 'https://example.com' },
+  ], settings);
+
+  assert.equal(configs.mobile.cardStyleClass, 'style-3');
+  assert.equal(configs.mobile.hideDesc, true);
+  assert.equal(configs.mobile.hideLinks, true);
+  assert.equal(configs.mobile.hideCategory, true);
+});
+
 test('card hydration state shares sanitization and render config', () => {
   const settings = parseSettings([
     { key: 'layout_enable_frosted_glass', value: 'true' },
@@ -162,6 +230,100 @@ test('narrow mobile compact density styles target configured card and column com
   assert.match(compactThreeColumnBlock, /\.site-icon/);
   assert.match(compactThreeColumnBlock, /\.site-title/);
   assert.match(compactThreeColumnBlock, /\.site-category/);
+});
+
+test('style three CSS keeps the compact glass navigation treatment', () => {
+  const css = readFileSync('public/css/style.css', 'utf8');
+
+  assert.match(css, /\.site-card\.style-3 \{/);
+  assert.match(css, /height: 85px !important/);
+  assert.match(css, /\.site-card\.style-3:not\(\.frosted-glass-effect\)/);
+  assert.match(css, /\.site-card\.style-3\.frosted-glass-effect/);
+  assert.match(css, /background-color: rgba\(255, 255, 255, 0\.15\) !important/);
+  assert.match(css, /#sitesGrid\.desktop-card-style3/);
+  assert.match(css, /#sitesGrid\.mobile-card-style3/);
+  assert.match(css, /max-width: 55rem/);
+  assert.match(css, /html\.dark body\.custom-wallpaper \.site-card\.style-3\.frosted-glass-effect/);
+  assert.match(css, /body\.desktop-page-style3 \.home-search-shell/);
+  assert.match(css, /body\.desktop-page-style3 footer/);
+  assert.match(css, /body\.mobile-page-style3 \.search-engine-option/);
+  assert.match(css, /body\.mobile-page-style3 \.home-search-shell/);
+  assert.match(css, /body\.mobile-page-style3 footer/);
+});
+
+test('style three top navigation keeps the single-line overflow menu available', () => {
+  const css = readFileSync('public/css/style.css', 'utf8');
+
+  assert.doesNotMatch(css, /body\.desktop-page-style3\.category-pos-top #horizontalMoreWrapper\s*\{[^}]*display:\s*none\s*!important/);
+  assert.doesNotMatch(css, /body\.mobile-page-style3\.category-pos-top #horizontalMoreWrapper\s*\{[^}]*display:\s*none\s*!important/);
+  assert.doesNotMatch(css, /body\.desktop-page-style3\.category-pos-top #horizontalCategoryNav\s*\{[^}]*max-height:\s*none\s*!important/);
+  assert.doesNotMatch(css, /body\.mobile-page-style3\.category-pos-top #horizontalCategoryNav\s*\{[^}]*max-height:\s*none\s*!important/);
+});
+
+test('style one and two top navigation aligns with the action row without changing button styles', () => {
+  const homeCss = readFileSync('public/css/style.css', 'utf8');
+  const previewCss = readFileSync('public/css/admin-preview-controls.css', 'utf8');
+
+  assert.match(homeCss, /body\.category-pos-top:not\(\.desktop-page-style3\) header\s*\{[^}]*padding-top:\s*1rem\s*!important/);
+  assert.match(homeCss, /body\.category-pos-top:not\(\.desktop-page-style3\) \.category-nav-top-wrap\s*\{[^}]*min-height:\s*2\.5rem;[^}]*margin-bottom:\s*1\.6rem/);
+  assert.match(homeCss, /body\.category-pos-top:not\(\.mobile-page-style3\) header\s*\{[^}]*padding-top:\s*1rem\s*!important/);
+  assert.match(previewCss, /\.home-live-preview\.category-top:not\(\.uses-card-style-3\) \.live-preview-hero\s*\{[^}]*padding-top:\s*1rem/);
+
+  const desktopAlignmentBlock = homeCss.match(/body\.category-pos-top:not\(\.desktop-page-style3\) \.category-nav-top-wrap\s*\{[^}]*\}/)?.[0] || '';
+  assert.doesNotMatch(desktopAlignmentBlock, /\.nav-btn|background|border-radius|color/);
+});
+
+test('external search shares the style three interaction while preserving per-style base colors', () => {
+  const homeCss = readFileSync('public/css/style.css', 'utf8');
+  const previewCss = readFileSync('public/css/admin-preview-controls.css', 'utf8');
+
+  assert.match(homeCss, /body:not\(\.desktop-page-style3\) \.search-engine-option\s*\{[^}]*color:\s*#111827\s*!important/);
+  assert.match(homeCss, /body\.desktop-page-style3 \.search-engine-option\s*\{[^}]*color:\s*rgba\(255, 255, 255, 0\.92\)\s*!important/);
+  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*border-radius:\s*0\s*!important;[^}]*background:\s*transparent\s*!important/);
+  assert.match(homeCss, /\.search-engine-option::after\s*\{[^}]*background:\s*#399dff/);
+  assert.match(homeCss, /body \.search-engine-option\.active\s*\{[^}]*color:\s*#399dff\s*!important;[^}]*background:\s*transparent\s*!important/);
+  assert.match(previewCss, /\.home-live-preview:not\(\.uses-card-style-3\) \.search-engine-option\s*\{[^}]*color:\s*#111827\s*!important/);
+  assert.match(previewCss, /\.home-live-preview\.uses-card-style-3 \.search-engine-option\s*\{[^}]*color:\s*rgba\(255, 255, 255, 0\.92\)\s*!important/);
+  assert.match(previewCss, /\.home-live-preview \.search-engine-option,[\s\S]*?border-radius:\s*0\s*!important;[\s\S]*?background:\s*transparent\s*!important/);
+  assert.match(previewCss, /\.home-live-preview \.search-engine-option\.active,[\s\S]*?color:\s*#399dff\s*!important;[\s\S]*?background:\s*transparent\s*!important/);
+});
+
+test('home and admin preview use a sticky footer layout', () => {
+  const homeCss = readFileSync('public/css/style.css', 'utf8');
+  const previewShellCss = readFileSync('public/css/admin-preview-shell.css', 'utf8');
+  const previewCardCss = readFileSync('public/css/admin-preview-cards.css', 'utf8');
+
+  assert.match(homeCss, /#app-scroll > \.main-content \{[\s\S]*?display: flex;[\s\S]*?min-height: 100%;/);
+  assert.match(homeCss, /#app-scroll > \.main-content > section \{[\s\S]*?width: 100%;[\s\S]*?flex-shrink: 0;/);
+  assert.match(homeCss, /#app-scroll > \.main-content > footer \{[\s\S]*?margin-top: auto;/);
+  assert.match(previewShellCss, /\.live-preview-page \{[\s\S]*?display: flex;[\s\S]*?flex-direction: column;/);
+  assert.match(previewCardCss, /\.live-preview-footer \{[\s\S]*?margin-top: auto;/);
+});
+
+test('home search keeps the original engine behavior', () => {
+  const source = readFileSync('public/js/home-search.js', 'utf8');
+
+  assert.match(source, /currentSearchEngine === 'bing'/);
+  assert.match(source, /currentSearchEngine = 'github'/);
+  assert.doesNotMatch(source, /www\.bing\.com\/search/);
+});
+
+test('custom wallpaper input resists browser and password-manager autofill', () => {
+  const html = readFileSync('public/admin/index.html', 'utf8');
+  const source = readFileSync('public/js/admin-settings-core.js', 'utf8');
+  const input = html.match(/<input[^>]*id="customWallpaperInput"[^>]*>/)?.[0] || '';
+
+  assert.match(input, /type="url"/);
+  assert.match(input, /autocomplete="new-password"/);
+  assert.match(input, /inputmode="url"/);
+  assert.match(input, /\sreadonly(?:\s|>)/);
+  assert.match(input, /data-lpignore="true"/);
+  assert.match(input, /data-1p-ignore="true"/);
+  assert.match(input, /data-bwignore="true"/);
+  assert.match(input, /data-form-type="other"/);
+  assert.match(source, /initAutofillGuards/);
+  assert.match(source, /wallpaperInput\.addEventListener\('focus', unlockWallpaperInput\)/);
+  assert.match(source, /wallpaperInput\.removeAttribute\('readonly'\)/);
 });
 
 test('admin mobile preview hides copy text at the same card density as the real page', () => {
